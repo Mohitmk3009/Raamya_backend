@@ -32,7 +32,9 @@ const connectDB = async () => {
     }
 };
 connectDB();
-
+app.get('/',(req,res)=>{
+    res.send("Welcome to Raamya Backend")
+})
 // --- API Routes ---
 // Directs any requests starting with '/api/auth' to the authRoutes.js file
 app.use('/api/auth', require('./routes/authRoutes'));
