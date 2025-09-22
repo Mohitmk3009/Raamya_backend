@@ -7,11 +7,11 @@ module.exports = function(passport) {
     passport.use(
         new GoogleStrategy(
             {
-                // It now reads directly from process.env, just like before
-                clientID: process.env.GOOGLE_CLIENT_ID,
-                clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-                callbackURL: '/api/auth/google/callback',
-            },
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        // Use a full URL, fetched from an environment variable
+        callbackURL: process.env.GOOGLE_CALLBACK_URL,
+      },
             async (accessToken, refreshToken, profile, done) => {
                 const newUser = {
                     googleId: profile.id,
