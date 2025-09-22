@@ -15,7 +15,7 @@ const app = express();
 // --- Middleware ---
 // Enable Cross-Origin Resource Sharing to allow your frontend to communicate with this backend
 app.use(cors({
-  origin: "https://raamya-backend.onrender.com"
+  origin: "http://localhost:3000/"
 }));
 // Parse incoming JSON request bodies
 app.use(express.json());
