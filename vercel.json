@@ -1,5 +1,5 @@
 {
-    "version":2,
+  "version": 2,
   "builds": [
     {
       "src": "server.js",
@@ -8,8 +8,12 @@
   ],
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/api/(.*)",
       "dest": "server.js"
     }
-  ]
+  ],
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "API_KEY": "@api_key"
+  }
 }
