@@ -14,9 +14,7 @@ const app = express();
 
 // --- Middleware ---
 // Enable Cross-Origin Resource Sharing to allow your frontend to communicate with this backend
-app.use(cors({
-  origin: "http://localhost:3000/"
-}));
+app.use(cors());
 // Parse incoming JSON request bodies
 app.use(express.json());
 // Initialize Passport for authentication strategies
