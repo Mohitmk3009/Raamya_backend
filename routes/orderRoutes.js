@@ -6,14 +6,15 @@ const {
     getOrderById, 
     updateOrderToPaidByAdmin,
     updateOrderToDelivered, 
-    getAllOrders 
+    getAllOrders ,
+    cancelOrder
 } = require('../controllers/orderController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
 // --- User-specific routes ---
 router.post('/', protect, addOrderItems);
 router.get('/myorders', protect, getMyOrders);
-
+router.route('/:id/cancel').put(protect, cancelOrder);
 // --- Admin-specific routes ---
 // IMPORTANT: The more specific '/all' route must come BEFORE the dynamic '/:id' route.
 router.get('/all', protect, admin, getAllOrders); 

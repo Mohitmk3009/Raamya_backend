@@ -17,6 +17,10 @@ const userSchema = new mongoose.Schema({
     // ... name, email, password, role, googleId fields remain the same
 
     name: { type: String, required: true },
+    phone: {
+        type: String,
+        required: false, // Or true if you want to make it mandatory
+    },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: function () { return !this.googleId; }, minlength: 6, select: false },
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
