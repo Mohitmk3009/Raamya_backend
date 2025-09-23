@@ -4,6 +4,7 @@
 /build
 /coverage
 /npm-debug.log*
+.env
 
 # Sensitive files
 *.env
