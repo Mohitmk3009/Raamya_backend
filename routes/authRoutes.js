@@ -22,7 +22,7 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
 // Endpoint: /api/auth/google/callback
 router.get(
     '/google/callback',
-    passport.authenticate('google', { session: false, failureRedirect: 'http://localhost:3000/login' }),
+passport.authenticate('google', { session: false, failureRedirect: 'https://raamya.vercel.app/login' }),
     (req, res) => {
         // User is authenticated by passport middleware, and user object is attached to req.user
         // Now, we generate our own JWT token for the user
