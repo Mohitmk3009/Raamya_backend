@@ -32,7 +32,7 @@ router.get(
 
         // Redirect the user back to the frontend with the token
         // The frontend will grab the token from the URL and save it.
-        res.redirect(`http://localhost:3000/login-success?token=${token}`);
+        res.redirect(`https://raamya.vercel.app/login-success?token=${token}`);
     }
 );
 
