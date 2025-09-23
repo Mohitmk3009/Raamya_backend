@@ -22,7 +22,7 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
 // Endpoint: /api/auth/google/callback
 router.get(
     '/google/callback',
-    passport.authenticate('google', { session: false, failureRedirect: 'http://localhost:3000/login' }),
+    passport.authenticate('google', { session: false, failureRedirect: 'https://raamya.vercel.app//login' }),
     (req, res) => {
         // User is authenticated by passport middleware, and user object is attached to req.user
         // Now, we generate our own JWT token for the user
@@ -32,7 +32,7 @@ router.get(
 
         // Redirect the user back to the frontend with the token
         // The frontend will grab the token from the URL and save it.
-        res.redirect(`http://localhost:3000/login-success?token=${token}`);
+        res.redirect(`https://raamya.vercel.app/login-success?token=${token}`);
     }
 );
 
