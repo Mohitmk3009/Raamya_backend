@@ -6,8 +6,6 @@ const User = require('../models/User');
  * @access  Private
  */
 exports.getUserProfile = async (req, res) => {
-    // The 'protect' middleware has already found the user from the token
-    // and attached it to the request object as 'req.user'.
     const user = await User.findById(req.user.id);
 
     if (user) {
@@ -15,6 +13,7 @@ exports.getUserProfile = async (req, res) => {
             _id: user._id,
             name: user.name,
             email: user.email,
+            phone: user.phone, // 1. ADD PHONE to the response
             addresses: user.addresses,
         });
     } else {
@@ -33,18 +32,21 @@ exports.updateUserProfile = async (req, res) => {
     if (user) {
         user.name = req.body.name || user.name;
         user.email = req.body.email || user.email;
+        user.phone = req.body.phone || user.phone; // 2. ADD PHONE to be updatable
 
         const updatedUser = await user.save();
         res.json({
             _id: updatedUser._id,
             name: updatedUser.name,
             email: updatedUser.email,
+            phone: updatedUser.phone, // 3. ADD PHONE to the updated response
             addresses: updatedUser.addresses
         });
     } else {
         res.status(404).json({ message: 'User not found' });
     }
 };
+
 
 /**
  * @desc    Update user password

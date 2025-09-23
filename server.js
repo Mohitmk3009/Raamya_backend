@@ -46,7 +46,8 @@ app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/cart', require('./routes/cartRoutes'));
 // Directs any requests starting with '/api/users' to the userRoutes.js file
 app.use('/api/users', require('./routes/userRoutes'));
-
+// Add this line
+app.use('/api/exchanges', require('./routes/exchangeRoutes'));
 
 // --- Server Initialization ---
 const PORT = process.env.PORT || 5001;
