@@ -6,7 +6,7 @@ const Order = require('../models/Order');
 // @access  Public
 exports.createExchangeRequest = async (req, res) => {
     const { orderNumber, email, reason } = req.body;
-
+const imageUrl = req.file ? req.file.path : null;
     if (!orderNumber || !email || !reason) {
         return res.status(400).json({ message: 'All fields are required.' });
     }
@@ -40,6 +40,7 @@ exports.createExchangeRequest = async (req, res) => {
             orderNumber: order._id,
             email,
             reason,
+            imageUrl,
             order: order._id,
             user: order.user._id,
         });

@@ -1,8 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const { createExchangeRequest } = require('../controllers/exchangeController');
-const { updateExchangeRequestStatus } = require('../controllers/exchangeController');
+const { 
+  createExchangeRequest,
+  updateExchangeRequestStatus 
+} = require('../controllers/exchangeController');
 const { protect, admin } = require('../middleware/authMiddleware');
-router.route('/').post(createExchangeRequest);
+const upload = require('../middleware/upload');
+
+// --- CORRECTED ---
+// Remove the duplicate route. This is the only line you need for this endpoint.
+router.post('/', upload.single('image'), createExchangeRequest);
+
+// This route remains the same
 router.route('/:id').put(protect, admin, updateExchangeRequestStatus); 
+ 
 module.exports = router;

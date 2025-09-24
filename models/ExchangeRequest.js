@@ -20,6 +20,7 @@ const exchangeRequestSchema = mongoose.Schema({
         enum: ['Pending', 'Approved', 'Rejected', 'Completed'],
         default: 'Pending',
     },
+     imageUrl: { type: String },
     order: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Order',

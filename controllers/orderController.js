@@ -31,29 +31,29 @@ exports.addOrderItems = async (req, res) => {
 
         const createdOrder = await order.save();
 
-        try {
-            const itemsHtml = createdOrder.orderItems.map(item => `
-        <div style="border-bottom: 1px solid #ddd; padding: 10px 0;">
-            <strong>${item.name}</strong> (Size: ${item.size}) - ${item.qty} x ₹${item.price}
-        </div>
-    `).join('');
+    //     try {
+    //         const itemsHtml = createdOrder.orderItems.map(item => `
+    //     <div style="border-bottom: 1px solid #ddd; padding: 10px 0;">
+    //         <strong>${item.name}</strong> (Size: ${item.size}) - ${item.qty} x ₹${item.price}
+    //     </div>
+    // `).join('');
 
-            await sendEmail({
-                to: req.user.email,
-                subject: `Your RAAMYA Order Confirmation #${createdOrder._id}`,
-                html: `
-            <h1>Thank you for your order!</h1>
-            <p>Order ID: ${createdOrder._id}</p>
-            <h3>Items:</h3>
-            ${itemsHtml}
-            <h3>Total: ₹${createdOrder.totalPrice.toLocaleString()}</h3>
-            <h3>Shipping to:</h3>
-            <p>${createdOrder.shippingAddress.fullName}<br>${createdOrder.shippingAddress.address}, ${createdOrder.shippingAddress.city}</p>
-        `
-            });
-        } catch (error) {
-            console.error('Order confirmation email failed:', error);
-        }
+    //         await sendEmail({
+    //             to: req.user.email,
+    //             subject: `Your RAAMYA Order Confirmation #${createdOrder._id}`,
+    //             html: `
+    //         <h1>Thank you for your order!</h1>
+    //         <p>Order ID: ${createdOrder._id}</p>
+    //         <h3>Items:</h3>
+    //         ${itemsHtml}
+    //         <h3>Total: ₹${createdOrder.totalPrice.toLocaleString()}</h3>
+    //         <h3>Shipping to:</h3>
+    //         <p>${createdOrder.shippingAddress.fullName}<br>${createdOrder.shippingAddress.address}, ${createdOrder.shippingAddress.city}</p>
+    //     `
+    //         });
+    //     } catch (error) {
+    //         console.error('Order confirmation email failed:', error);
+    //     }
 
 
         // Clear the user's cart after creating the order
@@ -200,6 +200,8 @@ exports.updateOrderToDelivered = async (req, res) => {
     }
 };
 
+// ... other imports like Order, Product etc.
+
 exports.cancelOrder = async (req, res) => {
     const { reason, details } = req.body;
 
@@ -214,7 +216,13 @@ exports.cancelOrder = async (req, res) => {
             return res.status(404).json({ message: 'Order not found' });
         }
 
-        // --- Business Logic: Check if the order can be cancelled ---
+        // --- NEW: Business Logic: Check if the order can be cancelled based on time ---
+        const hoursSinceOrder = (Date.now() - order.createdAt.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceOrder > 24) {
+            return res.status(400).json({ message: 'Orders can only be cancelled within 24 hours of placement.' });
+        }
+
+        // --- Existing Business Logic: Check order status ---
         if (order.status === 'Delivered') {
             return res.status(400).json({ message: 'Cannot cancel an order that has already been delivered.' });
         }
@@ -234,7 +242,8 @@ exports.cancelOrder = async (req, res) => {
         // --- Update the Order Status ---
         order.status = 'Cancelled';
         order.cancelledAt = Date.now();
-        order.cancellationReason = { reason, details };
+        // The frontend now sends the correct reason, this logic remains the same
+        order.cancellationReason = { reason, details }; 
 
         const updatedOrder = await order.save();
 

@@ -67,6 +67,7 @@ const productSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
+    isMostWanted: { type: Boolean, default: false }, 
     isSuggested: {
         type: Boolean,
         default: false,
