@@ -1,8 +1,8 @@
 const crypto = require('crypto');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const sendEmail = require('../utils/sendEmail');
-
+// const sendEmail = require('../utils/sendEmail');
+const { sendWelcomeEmail, sendOTPEmail } = require('../utils/emailService');
 // Function to generate a JWT
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -26,23 +26,13 @@ exports.register = async (req, res) => {
         if (user) {
             // --- EMAIL LOGIC ---
             try {
-                await sendEmail({
-                    to: user.email,
-                    subject: 'Welcome to RAAMYA!',
-                    html: `
-                        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-                            <h2>Hi ${user.name},</h2>
-                            <p>Thank you for registering. We're excited to have you as part of our community!</p>
-                            <a href="${process.env.FRONTEND_URL}" style="background-color: #FF9900; color: black; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Start Shopping</a>
-                            <p>Best Regards,<br>The RAAMYA Team</p>
-                        </div>
-                    `
-                });
+                // Call the correct function from your emailService
+                await sendWelcomeEmail({ email: user.email, name: user.name });
             } catch (error) {
                 console.error('Welcome email failed to send:', error);
             }
             // --- END EMAIL LOGIC ---
-            
+
             res.status(201).json({
                 _id: user._id,
                 name: user.name,
@@ -99,45 +89,111 @@ exports.login = async (req, res) => {
 };
 
 exports.forgotPassword = async (req, res) => {
-    const user = await User.findOne({ email: req.body.email });
-    if (!user) return res.status(404).json({ message: 'User with that email does not exist.' });
-    
-    const resetToken = user.getResetPasswordToken();
-    await user.save({ validateBeforeSave: false });
-
-    // In a real app, you would create a frontend page for this URL
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-    const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please make a PUT request to: \n\n <a href="${resetUrl}">${resetUrl}</a>`;
-    
+    const { email } = req.body;
+    let user;
     try {
-        await sendEmail({
-            to: user.email,
-            subject: 'Password Reset Token for RAAMYA',
-            html: message
-        });
-        res.status(200).json({ success: true, data: 'Email sent' });
-    } catch (error) {
-        user.passwordResetToken = undefined;
-        user.passwordResetExpires = undefined;
+        user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: 'User with that email does not exist.' });
+        }
+
+        // Generate a 6-digit OTP
+        const otp = crypto.randomInt(100000, 999999).toString();
+        user.otp = otp;
+        user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // store as Date
         await user.save({ validateBeforeSave: false });
+
+        await sendOTPEmail({
+            email: user.email,
+            otp: otp,
+        });
+
+        console.log(`OTP sent to ${user.email}`);
+        res.status(200).json({ success: true, message: 'OTP sent. Check your inbox.' });
+    } catch (error) {
+        if (user) {
+            user.otp = undefined;
+            user.otpExpires = undefined;
+            await user.save({ validateBeforeSave: false });
+        }
+        console.error('Forgot password email failed to send:', error);
         res.status(500).json({ message: 'Email could not be sent' });
     }
 };
 
-exports.resetPassword = async (req, res) => {
-    const resetPasswordToken = crypto.createHash('sha256').update(req.params.resettoken).digest('hex');
-    const user = await User.findOne({ 
-        passwordResetToken, 
-        passwordResetExpires: { $gt: Date.now() } 
-    });
+// New endpoint to verify the OTP
+exports.verifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
 
-    if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
-    
-    user.password = req.body.password;
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save();
-    
-    res.status(200).json({ success: true, message: 'Password reset successful' });
+    console.log("Verify OTP request:", { email, otp });
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // Log for debugging
+    console.log("Stored OTP:", user.otp, "Entered OTP:", otp);
+    console.log("Stored expiry:", user.otpExpires, "Now:", Date.now());
+
+    // Check if OTP exists
+    if (!user.otp) {
+      return res.status(400).json({ message: 'Invalid or expired OTP.' });
+    }
+
+    // Expiry check (if stored as Date or number)
+    const expiry = user.otpExpires instanceof Date ? user.otpExpires.getTime() : user.otpExpires;
+    if (expiry < Date.now()) {
+      return res.status(400).json({ message: 'Invalid or expired OTP.' });
+    }
+
+    // Match check (always compare as strings)
+    if (user.otp.toString() !== otp.toString().trim()) {
+      return res.status(400).json({ message: 'Invalid or expired OTP.' });
+    }
+
+    // OTP is valid → clear it
+    user.otp = undefined;
+    user.otpExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    return res.status(200).json({ success: true, message: 'OTP verified successfully.' });
+  } catch (error) {
+    console.error('OTP verification failed:', error);
+    return res.status(500).json({ message: 'OTP verification failed.' });
+  }
 };
 
+
+// Updated password reset endpoint
+exports.resetPassword = async (req, res) => {
+    const { email, newPassword } = req.body;
+    console.log('Reset password route hit'); // <-- check this
+  console.log('Params:', req.params);
+  console.log('Body:', req.body);
+    console.log("Reset Password request:", { email, newPassword });
+    try {
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        // Update the password and save
+        user.password = newPassword;
+        await user.save();
+
+        res.status(200).json({ success: true, message: 'Password reset successful' });
+    } catch (error) {
+        console.error('Password reset failed:', error);
+        res.status(500).json({ message: 'Password reset failed.' });
+    }
+};
+
+exports.getMe = async (req, res, next) => {
+  const user = await User.findById(req.user.id);
+  res.status(200).json({
+    success: true,
+    data: user,
+  });
+};

@@ -127,22 +127,95 @@ exports.getProductById = async (req, res) => {
 };
 
 // --- UPDATED ---
+// exports.createProduct = async (req, res) => {
+//     try {
+//         const { productName, regularPrice, description, images, category, variants, isNewArrival, suggestedItems, isSuggested, isMostWanted } = req.body;
+//         const product = new Product({
+//             name: productName,
+//             price: regularPrice,
+//             description,
+//             images: images && images.length > 0 && images[0] !== '' ? images : ['/placeholder.png'],
+//             category,
+//             variants,
+//             user: req.user._id,
+//             isNewArrival,
+//             suggestedItems,
+//             isSuggested,
+//             isMostWanted // Added
+//         });
+//         const createdProduct = await product.save();
+//         res.status(201).json(createdProduct);
+//     } catch (error) {
+//         res.status(400).json({ message: 'Error creating product', error: error.message });
+//     }
+// };
+
+// // --- UPDATED ---
+// exports.updateProduct = async (req, res) => {
+//     const { productName, regularPrice, description, images, category, variants, isNewArrival, suggestedItems, isSuggested, isMostWanted } = req.body;
+//     const product = await Product.findById(req.params.id);
+//     if (product) {
+//         product.name = productName || product.name;
+//         product.price = regularPrice || product.price;
+//         product.description = description || product.description;
+//         product.images = images || product.images;
+//         product.category = category || product.category;
+//         product.variants = variants || product.variants;
+//         product.isNewArrival = isNewArrival;
+//         product.suggestedItems = suggestedItems;
+//         product.isSuggested = isSuggested;
+//         product.isMostWanted = isMostWanted; // Added
+
+//         const updatedProduct = await product.save();
+//         res.json(updatedProduct);
+//     } else {
+//         res.status(404).json({ message: 'Product not found' });
+//     }
+// };
+const generateSKU = (category, name, size, companyId) => {
+    // Take the first letter of each word from the CATEGORY
+    const categoryInitials = category.split(' ').map((word) => word.charAt(0)).join('').toUpperCase();
+    // Take the first letter of each word from the PRODUCT NAME
+    const productInitials = name.split(' ').map((word) => word.charAt(0)).join('').toUpperCase();
+    // Take the single letter from the SIZE (e.g., M, L, S)
+    const sizeInitial = size.charAt(0).toUpperCase();
+    // Use a unique random number at the end
+    const uniqueId = Math.random().toString(36).substring(2, 6).toUpperCase();
+
+    return `${categoryInitials}-${productInitials}-${sizeInitial}-${companyId}-${uniqueId}`;
+};
+
 exports.createProduct = async (req, res) => {
     try {
-        const { productName, regularPrice, description, images, category, variants, isNewArrival, suggestedItems, isSuggested, isMostWanted } = req.body;
+        // Corrected: Use 'name' and 'price' from the request body
+        const { name, price, description, images, category, variants, isNewArrival, suggestedItems, isSuggested, isMostWanted, companyId } = req.body;
+
+        if (!variants || variants.length === 0) {
+            return res.status(400).json({ message: 'Product must have at least one variant.' });
+        }
+        
+        const variantsWithSKU = variants.map(variant => {
+            const sku = generateSKU(category, name, variant.size, companyId);
+            return {
+                ...variant,
+                sku: sku, // Add the generated SKU to the variant
+            };
+        });
         const product = new Product({
-            name: productName,
-            price: regularPrice,
+            name, // Use the correct variable 'name'
+            price, // Use the correct variable 'price'
             description,
             images: images && images.length > 0 && images[0] !== '' ? images : ['/placeholder.png'],
             category,
-            variants,
+            variants: variantsWithSKU, // Use the new variants array
             user: req.user._id,
             isNewArrival,
             suggestedItems,
             isSuggested,
-            isMostWanted // Added
+            isMostWanted,
+            companyId,
         });
+
         const createdProduct = await product.save();
         res.status(201).json(createdProduct);
     } catch (error) {
@@ -150,21 +223,41 @@ exports.createProduct = async (req, res) => {
     }
 };
 
-// --- UPDATED ---
 exports.updateProduct = async (req, res) => {
-    const { productName, regularPrice, description, images, category, variants, isNewArrival, suggestedItems, isSuggested, isMostWanted } = req.body;
+    // Corrected: Use 'name' and 'price' from the request body
+    const { name, price, description, images, category, variants, isNewArrival, suggestedItems, isSuggested, isMostWanted, companyId } = req.body;
+
     const product = await Product.findById(req.params.id);
+    
     if (product) {
-        product.name = productName || product.name;
-        product.price = regularPrice || product.price;
-        product.description = description || product.description;
-        product.images = images || product.images;
-        product.category = category || product.category;
-        product.variants = variants || product.variants;
+        // Use 'name' and 'category' when checking for SKU updates
+        const shouldUpdateSKUs = name !== product.name || category !== product.category || JSON.stringify(variants) !== JSON.stringify(product.variants);
+
+        if (shouldUpdateSKUs) {
+            product.variants = variants.map(variant => {
+                const existingVariant = product.variants.find(v => v.size === variant.size);
+                // Use 'name' and 'category' in the SKU generation function
+                const sku = existingVariant ? existingVariant.sku : generateSKU(category, name, variant.size, companyId);
+                return {
+                    ...variant,
+                    sku: sku,
+                };
+            });
+        } else {
+            product.variants = variants;
+        }
+
+        // Assign the correct variables
+        product.name = name;
+        product.price = price;
+        product.description = description;
+        product.images = images;
+        product.category = category;
         product.isNewArrival = isNewArrival;
         product.suggestedItems = suggestedItems;
         product.isSuggested = isSuggested;
-        product.isMostWanted = isMostWanted; // Added
+        product.isMostWanted = isMostWanted;
+        product.companyId = companyId;
 
         const updatedProduct = await product.save();
         res.json(updatedProduct);
@@ -172,7 +265,6 @@ exports.updateProduct = async (req, res) => {
         res.status(404).json({ message: 'Product not found' });
     }
 };
-
 // Unchanged
 exports.deleteProduct = async (req, res) => {
     const product = await Product.findById(req.params.id);

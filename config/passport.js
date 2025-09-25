@@ -1,6 +1,6 @@
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require('../models/User');
-const sendEmail = require('../utils/sendEmail');
+
 
 // This function now only takes 'passport' as an argument
 module.exports = function(passport) {

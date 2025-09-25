@@ -3,15 +3,16 @@ const express = require('express');
 const router = express.Router();
 const passport = require('passport'); // 1. Import Passport
 const jwt = require('jsonwebtoken'); // 2. Import JWT
-const { register, login,forgotPassword,resetPassword } = require('../controllers/authController');
+const { register, login,forgotPassword,verifyOTP, resetPassword, getMe, } = require('../controllers/authController');
 
 // ... (Your existing register and login routes)
 router.post('/register', register);
 router.post('/login', login);
 router.post('/forgotpassword', forgotPassword);
+router.post('/verify-otp', verifyOTP);
 router.put('/resetpassword/:resettoken', resetPassword);
 // --- Google OAuth Routes (Add these) ---
-
+router.get('/me', getMe);
 // This route starts the Google login process
 // Method: GET
 // Endpoint: /api/auth/google
@@ -22,7 +23,7 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
 // Endpoint: /api/auth/google/callback
 router.get(
     '/google/callback',
-passport.authenticate('google', { session: false, failureRedirect: 'https://raamya.vercel.app/login' }),
+passport.authenticate('google', { session: false, failureRedirect: 'https://raamya.net.in/login' }),
     (req, res) => {
         // User is authenticated by passport middleware, and user object is attached to req.user
         // Now, we generate our own JWT token for the user
@@ -32,7 +33,7 @@ passport.authenticate('google', { session: false, failureRedirect: 'https://raam
 
         // Redirect the user back to the frontend with the token
         // The frontend will grab the token from the URL and save it.
-        res.redirect(`https://raamya.vercel.app/login-success?token=${token}`);
+        res.redirect(`https://raamya.net.in/login-success?token=${token}`);
     }
 );
 

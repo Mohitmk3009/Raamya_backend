@@ -1,6 +1,6 @@
+const dotenv = require('dotenv');
 const express = require('express');
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
 const cors = require('cors');
 const passport = require('passport');
 
@@ -48,6 +48,8 @@ app.use('/api/cart', require('./routes/cartRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 // Add this line
 app.use('/api/exchanges', require('./routes/exchangeRoutes'));
+
+app.use('/api/contact', require('./routes/contactRoutes'));
 
 // --- Server Initialization ---
 const PORT = process.env.PORT || 5001;

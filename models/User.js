@@ -25,6 +25,8 @@ const userSchema = new mongoose.Schema({
     password: { type: String, required: function () { return !this.googleId; }, minlength: 6, select: false },
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     googleId: { type: String },
+    otp: { type: String },
+  otpExpires: { type: Date },
     passwordResetToken: String,
     passwordResetExpires: Date,
     // Add the addresses array to the schema

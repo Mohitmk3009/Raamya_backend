@@ -1,71 +1,109 @@
 const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product'); // 👈 ADD THIS LINE
-const sendEmail = require('../utils/sendEmail');
+// const sendEmail = require('../utils/sendEmail');
+const puppeteer = require('puppeteer');
+const { getHtmlForEBill } = require('../lib/htmlForEBill');
 const ExchangeRequest = require('../models/ExchangeRequest');
+
+const { sendOrderConfirmationEmail } = require('../utils/emailService');
+// @desc    Create new order
+// @route   POST /api/orders
+// @access  Private
 // @desc    Create new order
 // @route   POST /api/orders
 // @access  Private
 exports.addOrderItems = async (req, res) => {
-    // paymentMethod will now be 'UPI' or 'Cash on Delivery'
+    const { v4: uuidv4 } = await import('uuid');
     const { orderItems, shippingAddress, paymentMethod, shippingPrice, totalPrice } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
         return res.status(400).json({ message: 'No order items' });
     }
-
+    let createdOrder;
     try {
+        const itemsWithSku = await Promise.all(orderItems.map(async (item) => {
+            // ... (rest of the itemsWithSku logic is unchanged)
+            if (!item.product || !item.size) {
+                throw new Error(`Item "${item.name}" from your cart is missing critical data.`);
+            }
+
+            const product = await Product.findById(item.product);
+            if (!product) {
+                throw new Error(`A product from your cart with ID ${item.product} could not be found in the database.`);
+            }
+            const variant = product.variants.find(v => v.size === item.size);
+            if (!variant) {
+                throw new Error(`The size "${item.size}" for product "${product.name}" is no longer available.`);
+            }
+            if (!variant.sku) {
+                console.log(`\n\n[DEBUG] SKU IS MISSING for Product: '${product.name}', Size: '${item.size}'\n\n`);
+            }
+            return {
+                name: item.name,
+                qty: item.qty,
+                image: item.image,
+                price: item.price,
+                size: item.size,
+                product: item.product,
+                sku: variant.sku,
+            };
+        }));
+
+        const uniqueId = uuidv4().split('-')[0].toUpperCase(); // Get a short, unique string
+        const receiptNumber = `R-${uniqueId}`; // Example: "RC-C8F7E1B"
+        // --- END NEW LOGIC ---
+
         const order = new Order({
             user: req.user._id,
-            orderItems: orderItems.map(item => ({
-                ...item,
-                product: item.product, // Ensure product ID is correctly mapped
-                _id: undefined
-            })),
+            orderItems: itemsWithSku,
             shippingAddress,
             paymentMethod,
             shippingPrice,
             totalPrice,
-            isPaid: false, // Order is not paid initially
+            receiptNumber: receiptNumber, // Pass the generated receipt number here
         });
+        
+        createdOrder = await order.save();
+        
+       
 
-        const createdOrder = await order.save();
+        try {
+            console.log(`Generating PDF bill for order: ${createdOrder._id}`);
+            const htmlContent = getHtmlForEBill(createdOrder);
+            const browser = await puppeteer.launch({
+                headless: true,
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            });
+            const page = await browser.newPage();
+            await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+            const pdfBase64String = await page.pdf({
+                format: 'A4',
+                printBackground: true,
+                encoding: 'base64'
+            });
+            await browser.close();
+            const base64Data = Buffer.from(pdfBase64String).toString('base64');
+            console.log("PDF Base64 string generated. First chars:", base64Data.slice(0, 30));
 
-    //     try {
-    //         const itemsHtml = createdOrder.orderItems.map(item => `
-    //     <div style="border-bottom: 1px solid #ddd; padding: 10px 0;">
-    //         <strong>${item.name}</strong> (Size: ${item.size}) - ${item.qty} x ₹${item.price}
-    //     </div>
-    // `).join('');
+            await sendOrderConfirmationEmail({
+                user: req.user,
+                order: createdOrder,
+                pdfBuffer: base64Data
+            });
 
-    //         await sendEmail({
-    //             to: req.user.email,
-    //             subject: `Your RAAMYA Order Confirmation #${createdOrder._id}`,
-    //             html: `
-    //         <h1>Thank you for your order!</h1>
-    //         <p>Order ID: ${createdOrder._id}</p>
-    //         <h3>Items:</h3>
-    //         ${itemsHtml}
-    //         <h3>Total: ₹${createdOrder.totalPrice.toLocaleString()}</h3>
-    //         <h3>Shipping to:</h3>
-    //         <p>${createdOrder.shippingAddress.fullName}<br>${createdOrder.shippingAddress.address}, ${createdOrder.shippingAddress.city}</p>
-    //     `
-    //         });
-    //     } catch (error) {
-    //         console.error('Order confirmation email failed:', error);
-    //     }
+        } catch (emailError) {
+            console.error(`🚨 CRITICAL: The order ${createdOrder._id} was created, but PDF generation or email sending failed.`, emailError);
+        }
 
-
-        // Clear the user's cart after creating the order
         await Cart.findOneAndUpdate({ user: req.user._id }, { $set: { items: [] } });
-
         res.status(201).json(createdOrder);
 
     } catch (error) {
+        console.error("ERROR CREATING ORDER:", error);
         res.status(500).json({ message: `Server Error: ${error.message}` });
     }
 };
-
 // @desc    Get logged in user's orders
 // @route   GET /api/orders/myorders
 // @access  Private
@@ -156,7 +194,7 @@ exports.getOrderById = async (req, res) => {
         orderObject.exchangeRequest = exchangeRequest; // This will be null if no request exists
 
         res.json(orderObject);
-        
+
     } catch (error) {
         res.status(500).json({ message: 'Server Error' });
     }
@@ -243,7 +281,7 @@ exports.cancelOrder = async (req, res) => {
         order.status = 'Cancelled';
         order.cancelledAt = Date.now();
         // The frontend now sends the correct reason, this logic remains the same
-        order.cancellationReason = { reason, details }; 
+        order.cancellationReason = { reason, details };
 
         const updatedOrder = await order.save();
 
@@ -251,5 +289,34 @@ exports.cancelOrder = async (req, res) => {
 
     } catch (error) {
         res.status(500).json({ message: `Server Error: ${error.message}` });
+    }
+};
+
+exports.generateEBillController = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const order = await Order.findById(orderId).populate('user', 'email');
+console.log("Generating e-bill for order:", orderId, order ? "Order found" : "Order NOT found");
+
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found.' });
+        }
+
+        const htmlContent = getHtmlForEBill(order);
+
+        const browser = await puppeteer.launch({ headless: true });
+        const page = await browser.newPage();
+        await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+        await browser.close();
+
+        // Set headers and send the PDF
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Raamya-E-Bill-${order._id}.pdf"`);
+        res.send(pdfBuffer);
+
+    } catch (error) {
+        console.error('Error in generateEBillController:', error);
+        res.status(500).json({ message: 'Server error while generating PDF.' });
     }
 };

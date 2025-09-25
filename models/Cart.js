@@ -12,6 +12,7 @@ const cartItemSchema = new mongoose.Schema({
     qty: { type: Number, required: true },
     price: { type: Number, required: true },
     image: { type: String, required: true },
+    sku: { type: String, required: true },
 });
 
 // This defines the main cart, which belongs to a user and holds items

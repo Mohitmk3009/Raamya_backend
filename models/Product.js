@@ -16,6 +16,11 @@ const reviewSchema = new mongoose.Schema({
 const variantSchema = new mongoose.Schema({
     size: { type: String, required: true, enum: ['XS', 'S', 'M', 'L', 'XL'] },
     stock: { type: Number, required: true, min: 0, default: 0 },
+    sku: { // 👈 ADD THIS FIELD TO THE VARIANT SCHEMA
+        type: String,
+        required: true,
+        unique: true,
+    },
 });
 
 const faqSchema = new mongoose.Schema({
@@ -33,6 +38,11 @@ const productSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
+    
+    companyId: {
+            type: String,
+            required: true,
+        },
     images: [{
         type: String,
         required: true,

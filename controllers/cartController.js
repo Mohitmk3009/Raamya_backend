@@ -27,6 +27,17 @@ exports.addItemToCart = async (req, res) => {
         const product = await Product.findById(productId);
         if (!product) return res.status(404).json({ message: 'Product not found' });
 
+        // --- 👇 NEW LOGIC TO FIND VARIANT AND SKU 👇 ---
+        const variant = product.variants.find(v => v.size === size);
+        if (!variant) {
+            return res.status(404).json({ message: `Size ${size} not available for this product.` });
+        }
+        if (!variant.sku) {
+            console.error(`Data integrity error: SKU missing for product ${product.name}, size ${size}`);
+            return res.status(500).json({ message: 'Cannot add item to cart due to a data configuration error. Please contact support.' });
+        }
+        // --- 👆 END OF NEW LOGIC 👆 ---
+
         let cart = await Cart.findOne({ user: userId });
         if (!cart) {
             cart = new Cart({ user: userId, items: [] });
@@ -35,10 +46,8 @@ exports.addItemToCart = async (req, res) => {
         const itemIndex = cart.items.findIndex(p => p.product.toString() === productId && p.size === size);
 
         if (itemIndex > -1) {
-            // Product with the same size already exists, update the quantity
             cart.items[itemIndex].qty = qty;
         } else {
-            // Product not in cart, add as a new item
             const cartItem = {
                 product: productId,
                 name: product.name,
@@ -46,6 +55,7 @@ exports.addItemToCart = async (req, res) => {
                 qty,
                 price: product.price,
                 image: product.images[0],
+                sku: variant.sku, // 👈 ADD THE SKU HERE
             };
             cart.items.push(cartItem);
         }

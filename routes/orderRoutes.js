@@ -7,7 +7,8 @@ const {
     updateOrderToPaidByAdmin,
     updateOrderToDelivered, 
     getAllOrders ,
-    cancelOrder
+    cancelOrder,
+    generateEBillController
 } = require('../controllers/orderController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -20,6 +21,7 @@ router.route('/:id/cancel').put(protect, cancelOrder);
 router.get('/all', protect, admin, getAllOrders); 
 router.put('/:id/pay', protect, admin, updateOrderToPaidByAdmin);
 router.put('/:id/deliver', protect, admin, updateOrderToDelivered);
+router.get('/:orderId/generate-bill', generateEBillController);
 // --- This dynamic route must be last ---
 router.get('/:id', protect, getOrderById);
 
