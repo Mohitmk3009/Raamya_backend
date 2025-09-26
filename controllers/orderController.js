@@ -306,6 +306,7 @@ exports.generateEBillController = async (req, res) => {
         const htmlContent = getHtmlForEBill(order);
 
         // This is the simplified, universal launch configuration
+        const isWindows = process.platform === "win32";
         const browser = await puppeteer.launch({
             headless: true,
             args: [
