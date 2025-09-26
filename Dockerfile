@@ -4,18 +4,18 @@ FROM ghcr.io/puppeteer/puppeteer:latest
 # Set the working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
-
-# Change ownership of the files to the correct user
-USER root
-RUN chown -R pptruser:pptruser /app
-
+ENV PUPPETEER_CACHE_DIR=/app/.cache/puppeteer
 # Switch to the non-root user
 USER pptruser
 
-# Install dependencies
-RUN npm install
+# Copy package.json and package-lock.json
+COPY package*.json ./
+
+# Install dependencies and force the browser download
+RUN npm install --ignore-scripts=false
+
+# Set the executable path via a command, not an environment variable
+RUN npm install --prefix /app/node_modules/puppeteer
 
 # Copy the rest of your application code
 COPY . .
