@@ -3,6 +3,7 @@ const Cart = require('../models/Cart');
 const Product = require('../models/Product'); // 👈 ADD THIS LINE
 // const sendEmail = require('../utils/sendEmail');
 const puppeteer = require('puppeteer');
+
 const { getHtmlForEBill } = require('../lib/htmlForEBill');
 const ExchangeRequest = require('../models/ExchangeRequest');
 
@@ -296,7 +297,7 @@ exports.generateEBillController = async (req, res) => {
     try {
         const { orderId } = req.params;
         const order = await Order.findById(orderId).populate('user', 'email');
-console.log("Generating e-bill for order:", orderId, order ? "Order found" : "Order NOT found");
+        console.log("Generating e-bill for order:", orderId, order ? "Order found" : "Order NOT found");
 
         if (!order) {
             return res.status(404).json({ message: 'Order not found.' });
@@ -304,9 +305,28 @@ console.log("Generating e-bill for order:", orderId, order ? "Order found" : "Or
 
         const htmlContent = getHtmlForEBill(order);
 
-        const browser = await puppeteer.launch({ headless: true });
+        // Conditional Puppeteer configuration for local vs. production environments
+        let browser;
+        if (process.env.NODE_ENV === 'production') {
+            browser = await puppeteer.launch({
+                executablePath: process.env.CHROME_BIN || '/usr/bin/google-chrome-stable',
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                ],
+                headless: true,
+            });
+        } else {
+            // For local development, Puppeteer automatically handles the executable path
+            browser = await puppeteer.launch({ headless: true });
+        }
+        
         const page = await browser.newPage();
+        
+        // Use setContent to render the HTML string directly
         await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+
         const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
         await browser.close();
 

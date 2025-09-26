@@ -71,8 +71,13 @@ exports.getProducts = async (req, res) => {
         query.price = { $lte: Number(req.query.maxPrice) };
     }
     // Availability filtering
-    if (req.query.inStock === 'true') {
+    const { inStock, outOfStock } = req.query;
+
+    if (inStock === 'true' && outOfStock !== 'true') {
         query['variants.stock'] = { $gt: 0 };
+    } else if (outOfStock === 'true' && inStock !== 'true') {
+        // Corrected logic to find products where ALL variants have 0 stock
+        query.variants = { $not: { $elemMatch: { stock: { $gt: 0 } } } };
     }
     // Size filtering
     if (req.query.size) {
