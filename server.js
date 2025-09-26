@@ -50,7 +50,9 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/exchanges', require('./routes/exchangeRoutes'));
 
 app.use('/api/contact', require('./routes/contactRoutes'));
+ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 
+app.use('/api/subscribe', require('./routes/subscribeRoutes'));
 // --- Server Initialization ---
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {

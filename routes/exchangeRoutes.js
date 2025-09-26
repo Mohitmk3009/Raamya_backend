@@ -9,7 +9,7 @@ const upload = require('../middleware/upload');
 
 // --- CORRECTED ---
 // Remove the duplicate route. This is the only line you need for this endpoint.
-router.post('/', upload.single('image'), createExchangeRequest);
+router.post('/', upload.array('images', 5), createExchangeRequest);
 
 // This route remains the same
 router.route('/:id').put(protect, admin, updateExchangeRequestStatus); 

@@ -74,6 +74,11 @@ const orderSchema = new mongoose.Schema(
         deliveredAt: {
             type: Date,
         },
+        exchangeRequest: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'ExchangeRequest',
+},
+
          status: {
         type: String,
         required: true,

@@ -336,9 +336,10 @@
 const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
+const User = require('../models/User');
 const ExchangeRequest = require('../models/ExchangeRequest');
 const { getHtmlForEBill } = require('../lib/htmlForEBill');
-const { sendOrderConfirmationEmail } = require('../utils/emailService');
+const { sendOrderConfirmationEmail, sendOrderCancellationEmail } = require('../utils/emailService');
 
 // --- 👇 NEW: Correct setup for Puppeteer on servers like Render ---
 const puppeteer = require('puppeteer-core');
@@ -414,20 +415,20 @@ exports.addOrderItems = async (req, res) => {
         try {
             console.log(`Generating PDF bill for order: ${createdOrder._id}`);
             const htmlContent = getHtmlForEBill(createdOrder);
-            
+
             // Use the corrected Puppeteer launch options
             const browser = await puppeteer.launch(await getPuppeteerOptions());
-            
+
             const page = await browser.newPage();
             await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-            
+
             const pdfBase64String = await page.pdf({
                 format: 'A4',
                 printBackground: true,
                 encoding: 'base64'
             });
             await browser.close();
-            
+
             const base64Data = Buffer.from(pdfBase64String).toString('base64');
             console.log("PDF Base64 string generated successfully.");
 
@@ -475,16 +476,36 @@ exports.getMyOrders = async (req, res) => {
 // @route   GET /api/orders/all
 // @access  Private/Admin
 exports.getAllOrders = async (req, res) => {
-    const ordersPerPage = 10;
+    const pageSize = 10;
     const page = Number(req.query.pageNumber) || 1;
-    const { startDate, endDate, status } = req.query;
+    const { startDate, endDate, status, search } = req.query;
 
+    const filter = {};
     const query = {};
 
+    // --- Search ---
+    if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        const isMongoId = /^[0-9a-fA-F]{24}$/.test(search);
+
+        const users = await User.find({ name: searchRegex }).select("_id");
+        const userIds = users.map(user => user._id);
+
+        filter.$or = [
+            { user: { $in: userIds } },
+        ];
+
+        if (isMongoId) {
+            filter.$or.push({ _id: search });
+        }
+    }
+
+    // --- Date filter ---
     if (startDate && endDate) {
         query.createdAt = { $gte: new Date(startDate), $lte: new Date(endDate) };
     }
 
+    // --- Status filter ---
     if (status && status !== 'All') {
         if (status === 'Exchange Requested') {
             const exchangeRequests = await ExchangeRequest.find({}).select('order');
@@ -496,26 +517,37 @@ exports.getAllOrders = async (req, res) => {
     }
 
     try {
-        const count = await Order.countDocuments(query);
-        const orders = await Order.find(query)
-            .populate('user', 'name')
-            .sort({ createdAt: -1 })
-            .limit(ordersPerPage)
-            .skip(ordersPerPage * (page - 1));
+        const combinedFilter = { ...filter, ...query };
+        const count = await Order.countDocuments(combinedFilter);
 
-        const ordersWithExtraInfo = await Promise.all(orders.map(async (order) => {
-            const exchangeRequest = await ExchangeRequest.findOne({ order: order._id });
-            const orderObject = order.toObject();
-            orderObject.hasExchangeRequest = !!exchangeRequest;
-            return orderObject;
-        }));
+        const orders = await Order.find(combinedFilter)
+    .populate('user', 'name')
+    .populate('exchangeRequest') // 👈 this pulls the exchange request directly
+    .sort({ createdAt: -1 })
+    .limit(pageSize)
+    .skip(pageSize * (page - 1));
 
-        res.json({ orders: ordersWithExtraInfo, page, pages: Math.ceil(count / ordersPerPage) });
+        // ✅ Attach exchangeRequest properly
+        const ordersWithExtraInfo = await Promise.all(
+            orders.map(async (order) => {
+                const exchangeRequest = await ExchangeRequest.findOne({ order: order._id });
+                const orderObject = order.toObject();
+                orderObject.exchangeRequest = exchangeRequest;
+                return orderObject; // ✅ must return
+            })
+        );
+
+        res.json({
+            orders: ordersWithExtraInfo,
+            page,
+            pages: Math.ceil(count / pageSize)
+        });
     } catch (error) {
         console.error("Error fetching all orders:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 };
+
 
 // @desc    Get order by ID
 // @route   GET /api/orders/:id
@@ -531,7 +563,8 @@ exports.getOrderById = async (req, res) => {
         const exchangeRequest = await ExchangeRequest.findOne({ order: order._id });
         const orderObject = order.toObject();
         orderObject.exchangeRequest = exchangeRequest;
-
+        console.log("Fetched order:", orderObject);
+        console.log("Exchange request:", exchangeRequest);
         res.json(orderObject);
     } catch (error) {
         console.error(`Error fetching order by ID ${req.params.id}:`, error);
@@ -591,7 +624,7 @@ exports.cancelOrder = async (req, res) => {
     }
 
     try {
-        const order = await Order.findById(req.params.id);
+        const order = await Order.findById(req.params.id).populate('user', 'name email');
 
         if (!order) {
             return res.status(404).json({ message: 'Order not found' });
@@ -619,6 +652,17 @@ exports.cancelOrder = async (req, res) => {
         order.cancellationReason = { reason, details };
 
         const updatedOrder = await order.save();
+
+        // --- 👇 NEW: Send cancellation email notifications ---
+        try {
+            await sendOrderCancellationEmail({
+                user: updatedOrder.user,
+                order: updatedOrder,
+            });
+        } catch (emailError) {
+            console.error(`🚨 Order ${updatedOrder._id} was cancelled, but sending the notification email failed.`, emailError);
+            // Non-critical error: We don't stop the response, just log it.
+        }
         res.json(updatedOrder);
 
     } catch (error) {
