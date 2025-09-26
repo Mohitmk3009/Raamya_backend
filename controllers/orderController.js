@@ -305,8 +305,7 @@ exports.generateEBillController = async (req, res) => {
 
         const htmlContent = getHtmlForEBill(order);
 
-        // This is the simplified, universal launch configuration
-        const isWindows = process.platform === "win32";
+        // Remove the hardcoded executablePath completely
         const browser = await puppeteer.launch({
             headless: true,
             args: [
@@ -314,10 +313,8 @@ exports.generateEBillController = async (req, res) => {
                 "--disable-setuid-sandbox",
                 "--disable-dev-shm-usage",
             ],
-            executablePath: isWindows
-                ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-                : "/usr/bin/chromium-browser" // use Render’s Chromium
         });
+
         const page = await browser.newPage();
         await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
