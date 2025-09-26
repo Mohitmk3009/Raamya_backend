@@ -1,11 +1,11 @@
 # Use a base image that already has Node.js and Chromium
 FROM ghcr.io/puppeteer/puppeteer:latest
 
-# Set the working directory
-WORKDIR /app
-
-# Switch to the non-root user
+# Switch to the non-root user provided by the image
 USER pptruser
+
+# Set the working directory, owned by the user
+WORKDIR /app
 
 # Copy package.json and package-lock.json
 COPY package*.json ./
