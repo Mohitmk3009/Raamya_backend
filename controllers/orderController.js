@@ -64,10 +64,10 @@ exports.addOrderItems = async (req, res) => {
             totalPrice,
             receiptNumber: receiptNumber, // Pass the generated receipt number here
         });
-        
+
         createdOrder = await order.save();
-        
-       
+
+
 
         try {
             console.log(`Generating PDF bill for order: ${createdOrder._id}`);
@@ -310,7 +310,7 @@ exports.generateEBillController = async (req, res) => {
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                
+                '--disable-dev-shm-usage',
             ],
             headless: true,
         });
