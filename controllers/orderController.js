@@ -305,32 +305,22 @@ exports.generateEBillController = async (req, res) => {
 
         const htmlContent = getHtmlForEBill(order);
 
-        // Conditional Puppeteer configuration for local vs. production environments
-        let browser;
-        if (process.env.NODE_ENV === 'production') {
-            browser = await puppeteer.launch({
-                executablePath: process.env.CHROME_BIN || '/usr/bin/google-chrome-stable',
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                ],
-                headless: true,
-            });
-        } else {
-            // For local development, Puppeteer automatically handles the executable path
-            browser = await puppeteer.launch({ headless: true });
-        }
-        
+        // This is the simplified, universal launch configuration
+        const browser = await puppeteer.launch({
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+            ],
+            headless: true,
+        });
+
         const page = await browser.newPage();
-        
-        // Use setContent to render the HTML string directly
         await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
         const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
         await browser.close();
 
-        // Set headers and send the PDF
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="Raamya-E-Bill-${order._id}.pdf"`);
         res.send(pdfBuffer);
