@@ -1,2 +1,4 @@
 .cache/puppeteer/* filter=lfs diff=lfs merge=lfs -text
 .cache/puppeteer/**/* filter=lfs diff=lfs merge=lfs -text
+.cache/puppeteer/chrome-headless-shell/win64-140.0.7339.207/chrome-headless-shell-win64/chrome-headless-shell.exe filter=lfs diff=lfs merge=lfs -text
+.cache/puppeteer/chrome/win64-140.0.7339.207/chrome-win64/chrome.dll filter=lfs diff=lfs merge=lfs -text
