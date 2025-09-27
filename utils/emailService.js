@@ -77,7 +77,7 @@ const sendContactUsEmail = async ({ name, email, message, subject, phone }) => {
         to: [{ email, name }],
         sender: { email: senderEmail, name: senderName },
         templateId: userTemplateId,
-        params: { FIRSTNAME: name.split(' ')[0] },
+        params: { FIRSTNAME: name.split(' ')[0], MESSAGE: message,SUBJECT: subject },
     };
 
     const adminPayload = {
